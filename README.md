@@ -1,88 +1,20 @@
-# Music-analyzer-
 🎵 Pro Music Analyzer
 
-A professional-level music analysis tool built with Python and Streamlit. Upload your audio files (mp3, wav, ogg) and get a detailed analysis including tempo, key, spectral features, energy, beats, mood, and more. Generate playlists by mood and export features for further use.
+Pro Music Analyzer is a professional-level music analysis tool built with Python and Streamlit. This project was developed as a group assignment under the supervision of a professor during a hands-on workshop on audio and AI technologies.
 
-🔹 Features
-
-Tempo Detection: Beats per minute (BPM)
-
-Key Detection: Musical key of the track
-
-Mood Classification: Energetic, Calm, or Neutral based on RMS and spectral features
-
-Spectral Features:
-
-Spectral Centroid
-
-Spectral Bandwidth
-
-Spectral Contrast
-
-Zero Crossing Rate
-
-Waveform & Frequency Spectrum: Visualize the audio signal
-
-Energy Over Time Plot: RMS energy variation across the track
-
-Beat Overlay Visualization: Shows detected beats on waveform
-
-Playlist Generation: Group songs by mood
-
-Export Audio Features: CSV export for all analyzed features
-
-Performance Optimizations:
-
-Option to analyze only first 30 seconds (faster)
-
-Optional full song analysis
-
-Downsampling to speed up analysis
-
-Streamlit caching to avoid reprocessing
-
-🔹 Installation
-
-Clone the repository:
-
-git clone https://github.com/yourusername/pro-music-analyzer.git
-cd pro-music-analyzer
-
-
-Create a virtual environment (optional but recommended):
-
-python -m venv venv
-
-
-Activate the virtual environment:
-
-Windows:
-
-venv\Scripts\activate
-
-
-Mac/Linux:
-
-source venv/bin/activate
-
-
-Install dependencies:
-
-pip install -r requirements.txt
-
+It allows users to upload audio files and get a detailed analysis including tempo, key, spectral features, energy, beats, mood, and more. Users can also generate playlists based on mood and export analysis results for further use.
+---
 🔹 Dependencies
 
-The main Python packages used are:
+streamlit — interactive web app framework
 
-streamlit — for interactive web app
-
-librosa — audio analysis
+librosa — audio analysis library
 
 numpy — numerical operations
 
-matplotlib — plotting waveforms & spectra
+matplotlib — plotting library
 
-pandas — exporting data
+pandas — data management and CSV export
 
 scipy — signal processing
 
@@ -94,36 +26,28 @@ numpy
 matplotlib
 pandas
 scipy
+---
 
-🔹 Usage
+🔹 How to Run
 
-Run the app:
+Launch the app:
 
 streamlit run app.py
 
 
-Open in browser:
-Streamlit usually opens the app automatically in your default browser. If not, check the terminal URL, usually: http://localhost:8501.
+Open the app in your browser. Usually: http://localhost:8501.
 
-Upload audio files:
-Supports .mp3, .wav, and .ogg.
+Upload one or more audio files (mp3, wav, ogg).
 
-Choose analysis mode:
+Select analysis mode:
 
-First 30 seconds: Fast analysis
+First 30 seconds: Fast preview
 
-Full song: Full analysis (slower)
+Full song: Detailed analysis
 
-Visualize features:
+View audio features and visualizations: waveform, spectrum, energy over time, and beats.
 
-Waveform
+Generate playlists by mood.
 
-Frequency spectrum
-
-Energy over time
-
-Beat markers
-
-Generate playlist by mood
-
-Export audio features to CSV
+Export all features to CSV for further analysis.
+---
