@@ -21,6 +21,21 @@ uploaded_files = st.file_uploader(
 # Option: full song vs first 30 seconds
 analyze_full_song = st.checkbox("Analyze full song (slower)", value=False)
 
+# Mood detection function
+def detect_mood(rms, tempo, spectral_centroid):
+    if rms > 0.06 and tempo > 120 and spectral_centroid > 3000:
+        return "🔥 Energetic / Dance"
+    elif rms > 0.04 and tempo < 100 and spectral_centroid < 2500:
+        return "🌙 Chill / Relaxed"
+    elif rms < 0.03 and spectral_centroid < 2000:
+        return "🌌 Calm / Ambient"
+    elif rms > 0.05 and spectral_centroid < 2000:
+        return "💔 Dark / Heavy"
+    elif tempo > 140 and spectral_centroid > 4000:
+        return "⚡ Hype / Upbeat"
+    else:
+        return "🎵 Neutral"
+
 # Cache analysis to speed up repeated runs
 @st.cache_data
 def analyze_audio(file_bytes, filename, full_song):
@@ -50,13 +65,8 @@ def analyze_audio(file_bytes, filename, full_song):
     spectral_contrast = librosa.feature.spectral_contrast(y=y, sr=sr).mean()
     zero_crossing_rate = librosa.feature.zero_crossing_rate(y).mean()
 
-    # Mood detection (improved)
-    if rms > 0.05 and spectral_centroid > 3000:
-        mood = "Energetic"
-    elif rms < 0.03 and spectral_centroid < 2000:
-        mood = "Calm"
-    else:
-        mood = "Neutral"
+    # Mood detection (multi-factor)
+    mood = detect_mood(rms, tempo, spectral_centroid)
 
     return {
         "name": filename,
