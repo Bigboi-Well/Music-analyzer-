@@ -81,32 +81,41 @@ def detect_key(chroma_mean: np.ndarray) -> str:
         pc = int(np.argmax(minor_scores))
         mode = "minor"
     return f"{PITCH_CLASS_NAMES[pc]} {mode}"
-
 def classify_mood_extended(tempo: float, rms: float, centroid: float, rolloff: float, zcr: float) -> str:
     """
-    Rule-based multi-label mood classifier tuned to avoid marking rap/reggaeton as Neutral.
-    Priority checks for Rap and Reggaeton patterns first.
+    Rule-based multi-label mood classifier tuned:
+    - Rap/Hip-Hop and Reggaeton/Dance have priority
+    - Ballads avoid 'Dark/Heavy'
+    - Despacito-like tracks map correctly
     """
-    # Rap / Hip-Hop: strong percussive energy, mid tempo, high ZCR or high RMS with moderate centroid
-    if (80 <= tempo <= 110 and (rms > 0.05 or zcr > 0.06) and 2000 <= centroid <= 4000):
+    # Rap / Hip-Hop: mid tempo, strong percussion/energy
+    if (75 <= tempo <= 115 and (rms > 0.045 or zcr > 0.06) and 1800 <= centroid <= 4000):
         return "Rap/Hip-Hop"
-    # Reggaeton / Dance pop: percussive + rolloff high + tempo moderate
-    if (90 <= tempo <= 120 and rolloff > 5000 and zcr > 0.06):
+
+    # Reggaeton / Dance (Despacito): tempo 85–115, high rolloff or bright + rhythm
+    if (85 <= tempo <= 115 and (rolloff > 4000 or centroid > 2500) and zcr > 0.04):
         return "Reggaeton/Dance"
-    # EDM / Dance: fast tempo and bright
-    if tempo > 130 and centroid > 3500:
+
+    # EDM / Dance: very fast + bright
+    if tempo >= 125 and centroid >= 3400:
         return "EDM/Dance"
-    # Pop: mid tempo bright
-    if 100 <= tempo <= 130 and centroid > 2500:
+
+    # Pop: mid tempo, moderately bright
+    if 95 <= tempo <= 135 and centroid > 2200 and rms > 0.035:
         return "Pop"
-    # Chill/Ambient: low RMS, low centroid
-    if rms < 0.03 and centroid < 2000:
+
+    # Chill/Ambient (ballads like Perfect): slow, low RMS, soft spectrum
+    if tempo < 95 and rms < 0.05 and centroid < 2400:
         return "Chill/Ambient"
-    # Dark/Heavy: loud but mellow centroid
-    if rms > 0.06 and centroid < 2200:
+
+    # Dark/Heavy: high RMS, low brightness (rock/metal/heavy rap)
+    if rms >= 0.07 and centroid < 2200:
         return "Dark/Heavy"
-    # fallback neutral
+
+    # fallback
     return "Neutral"
+
+
 
 def safe_librosa_load(data: bytes, sr=22050, mono=True, duration=None):
     try:
