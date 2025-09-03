@@ -1,104 +1,97 @@
 import streamlit as st
+import numpy as np
 import librosa
 import librosa.display
-import numpy as np
 import matplotlib.pyplot as plt
 import soundfile as sf
-import tempfile
-import os
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
+import io
+import scipy.signal
 
-# ----------------- Spotify API Setup -----------------
-SPOTIFY_CLIENT_ID = st.secrets["SPOTIFY_CLIENT_ID"]
-SPOTIFY_CLIENT_SECRET = st.secrets["SPOTIFY_CLIENT_SECRET"]
+# Patch missing hann window in SciPy
+if not hasattr(scipy.signal, "hann"):
+    from scipy.signal import windows
+    scipy.signal.hann = windows.hann
 
-sp = spotipy.Spotify(
-    auth_manager=SpotifyClientCredentials(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET
-    )
-)
+# Patch librosa waveshow color bug
+_old_waveshow = librosa.display.waveshow
+def _waveshow_patched(*args, **kwargs):
+    kwargs.setdefault("color", "b")
+    return _old_waveshow(*args, **kwargs)
+librosa.display.waveshow = _waveshow_patched
 
-# ----------------- Helper Functions -----------------
-@st.cache_data
-def analyze_audio(file_path):
-    try:
-        y, sr = librosa.load(file_path, sr=None)
-        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
-        spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
-        zcr = np.mean(librosa.feature.zero_crossing_rate(y))
-        mfccs = np.mean(librosa.feature.mfcc(y=y, sr=sr), axis=1)
-
-        return {
-            "tempo": round(tempo, 2),
-            "spectral_centroid_mean": round(np.mean(spectral_centroids), 2),
-            "spectral_rolloff_mean": round(np.mean(spectral_rolloff), 2),
-            "zero_crossing_rate": round(zcr, 4),
-            "mfccs_mean": [round(val, 2) for val in mfccs[:5]]
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-@st.cache_data
-def get_song_info(song_name):
-    try:
-        results = sp.search(q=song_name, type="track", limit=1)
-        if results["tracks"]["items"]:
-            track = results["tracks"]["items"][0]
-            return {
-                "name": track["name"],
-                "artist": track["artists"][0]["name"],
-                "album": track["album"]["name"],
-                "release_date": track["album"]["release_date"],
-                "popularity": track["popularity"]
-            }
-        else:
-            return {"error": "Song not found on Spotify."}
-    except Exception as e:
-        return {"error": str(e)}
-
-# ----------------- Streamlit UI -----------------
-st.set_page_config(page_title="Music Analyzer Pro", layout="wide")
-st.title("🎶 Ultimate Music Analyzer by Baibhav Ghimire")
-st.write("Upload a song to analyze its features and get Spotify details.")
-
-uploaded_file = st.file_uploader("Upload an MP3 or WAV file", type=["mp3", "wav"])
-
-if uploaded_file is not None:
-    with st.spinner("Processing audio..."):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-            data, samplerate = sf.read(uploaded_file)
-            sf.write(tmp_file.name, data, samplerate)
-            temp_file_path = tmp_file.name
-
-        analysis = analyze_audio(temp_file_path)
-
-    if "error" in analysis:
-        st.error(f"Audio Analysis Failed: {analysis['error']}")
+# Mood classification logic
+def classify_mood(tempo, energy, spectral_centroid, zero_crossings):
+    if tempo < 80 and energy < 0.04:
+        return "🧘 Calm / Chill"
+    elif 80 <= tempo < 110 and 0.04 <= energy < 0.06:
+        return "😌 Neutral / Mellow"
+    elif 110 <= tempo < 140 and energy >= 0.05:
+        return "💃 Dance / Happy"
+    elif tempo >= 140 or spectral_centroid > 3500 or zero_crossings > 0.15:
+        return "🔥 Energetic / Intense (Rap / Rock / EDM)"
     else:
-        tab1, tab2 = st.tabs(["📊 Audio Features", "🎵 Spotify Info"])
+        return "🎵 Neutral"
 
-        with tab1:
-            st.subheader("Audio Features")
-            st.json(analysis)
+# Audio analyzer
+def analyze_audio(file_bytes, filename):
+    y, sr = librosa.load(io.BytesIO(file_bytes), sr=None, mono=True)
+    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    rms = librosa.feature.rms(y=y)[0]
+    energy = float(np.mean(rms))
+    spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+    zero_crossings = float(np.mean(librosa.feature.zero_crossing_rate(y)))
+    mood = classify_mood(tempo, energy, spectral_centroid, zero_crossings)
 
-            y, sr = librosa.load(temp_file_path, sr=None)
-            fig, ax = plt.subplots()
-            librosa.display.waveshow(y, sr=sr, ax=ax)
-            ax.set(title="Waveform")
-            st.pyplot(fig)
+    return {
+        "filename": filename,
+        "y": y,
+        "sr": sr,
+        "tempo": tempo,
+        "energy": energy,
+        "spectral_centroid": spectral_centroid,
+        "zero_crossings": zero_crossings,
+        "mood": mood,
+    }
 
-        with tab2:
-            song_query = st.text_input("Enter song name for Spotify info", value=os.path.splitext(uploaded_file.name)[0])
-            if song_query:
-                song_info = get_song_info(song_query)
-                if "error" in song_info:
-                    st.warning(song_info["error"])
-                else:
-                    st.write(f"**Song:** {song_info['name']}")
-                    st.write(f"**Artist:** {song_info['artist']}")
-                    st.write(f"**Album:** {song_info['album']}")
-                    st.write(f"**Release Date:** {song_info['release_date']}")
-                    st.write(f"**Popularity (Worldwide Reach):** {song_info['popularity']} / 100")
+# Streamlit UI
+st.set_page_config(page_title="🎵 Pro Music Analyzer", layout="wide")
+
+st.title("🎶 Pro Music Analyzer")
+st.markdown("Upload a song and let the analyzer reveal its hidden musical personality. Built with ❤️ by students under professor guidance.")
+
+uploaded_file = st.file_uploader("🎼 Upload a song (MP3/WAV)", type=["mp3", "wav"])
+
+if uploaded_file:
+    st.audio(uploaded_file, format="audio/wav")
+    st.success(f"Analyzing **{uploaded_file.name}** ... Please wait ⏳")
+
+    result = analyze_audio(uploaded_file.read(), uploaded_file.name)
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("📊 Song Features")
+        st.metric("Tempo (BPM)", f"{result['tempo']:.2f}")
+        st.metric("Energy (RMS)", f"{result['energy']:.4f}")
+        st.metric("Spectral Centroid", f"{result['spectral_centroid']:.2f} Hz")
+        st.metric("Zero Crossing Rate", f"{result['zero_crossings']:.4f}")
+        st.markdown(f"**🎭 Mood Spectrum:** {result['mood']}")
+
+    with col2:
+        st.subheader("📈 Waveform")
+        fig, ax = plt.subplots(figsize=(8, 3))
+        librosa.display.waveshow(result["y"], sr=result["sr"], ax=ax)
+        ax.set_title("Waveform")
+        st.pyplot(fig)
+
+    st.subheader("🔊 Spectral Centroid Over Time")
+    fig2, ax2 = plt.subplots(figsize=(8, 3))
+    spec_cent = librosa.feature.spectral_centroid(y=result["y"], sr=result["sr"])
+    ax2.semilogy(spec_cent.T, label="Spectral Centroid", color="r")
+    ax2.set_ylabel("Hz")
+    ax2.set_title("Spectral Centroid")
+    ax2.legend()
+    st.pyplot(fig2)
+
+else:
+    st.info("👆 Upload a song to begin your musical journey.")
