@@ -39,7 +39,14 @@ Open the app in your browser. Usually: http://localhost:8501.
 
 Upload one or more audio files (mp3, wav, ogg).
 
-Select analysis mode:
+Select analysis mode:[requirements.txt](https://github.com/user-attachments/files/22308647/requirements.txt)
+streamlit
+librosa
+matplotlib
+numpy
+scipy
+spotipy
+soundfile
 
 First 30 seconds: Fast preview
 
